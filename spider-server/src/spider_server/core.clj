@@ -108,22 +108,44 @@
 
 (def info (server-info (local-client)))
 
-(def setstring (Info/request "localhost" 3000 "sets"))
-(def as-ns (Info/request "localhost" 3000 "namespaces"))
-
 (def n (first (nodes (local-client))))
 
 (defn scan
   [^Key key ^Record record]
-  (prn key (.bins record))
+  ;(prn (.digest key))
+  ;(prn "record: " (strkeymap->map (.bins record)))
+  (strkeymap->map (.bins record)))
 
-(.scanNode
- (local-client)
- (scan-policy)
- n
- "music"
- "album"
- (reify ScanCallback
-   (scanCallback [this, key, record]
-     (scan key record)))
- (into-array String []))
+(defn do-scan
+  [node namespace set]
+  (let [l (atom [])]
+    (.scanNode (local-client) (scan-policy) node namespace set (reify ScanCallback
+       (scanCallback [this key record]
+         (swap! l conj (scan key record))))
+     (into-array String []))
+    @l))
+
+(do-scan n "music" "album")
+
+(defn ns-sets
+  [namespace sets]
+  {:ns namespace
+   :sets (->> sets
+              (filter #(= namespace (:ns %)))
+              (map :set))})
+
+(defn ns-struct
+  [namespaces sets]
+  (map #(ns-sets % sets) namespaces))
+
+(def struct (ns-struct (:ns info) (:sets info)))
+
+(defn ns-structs->ns-set-list
+  [ns-structs]
+  (letfn [(entry [namespace set] {:ns namespace :set set})
+          (f [namespace sets] (map #(entry namespace %) sets))]
+    (->> ns-structs
+         (map #(f (:ns %) (:sets %)))
+         flatten)))
+
+(map (fn [l] (do-scan n (:ns l) (:set l))) (ns-structs->ns-set-list struct))
