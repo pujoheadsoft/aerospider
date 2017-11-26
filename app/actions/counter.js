@@ -20,22 +20,22 @@ export function decrement() {
   };
 }
 
-export function incrementIfOdd() {
-  return (dispatch: (action: actionType) => void, getState: () => counterStateType) => {
-    const { counter } = getState();
+export function incrementIfOdd(counter: number) {
+
+    console.log("increment odd")
 
     if (counter % 2 === 0) {
-      return;
+      return {type: "NONE"};
     }
 
-    dispatch(increment());
-  };
+    return {
+      type: 'INCREMENT_COUNTER'
+    };
 }
 
-export function incrementAsync(delay: number = 1000) {
-  return (dispatch: (action: actionType) => void) => {
-    setTimeout(() => {
-      dispatch(increment());
-    }, delay);
+export function incrementAsync() {
+  console.log("async inc")
+  return {
+    type: 'INCREMENT_ASYNC'
   };
 }

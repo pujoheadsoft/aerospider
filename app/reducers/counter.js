@@ -10,6 +10,7 @@ type actionType = {
 };
 
 export default function counter(state: number = 0, action: actionType) {
+  console.log("reducer counter: " + action.type)
   switch (action.type) {
     case INCREMENT_COUNTER:
       return state + 1;
