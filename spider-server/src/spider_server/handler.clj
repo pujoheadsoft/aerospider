@@ -5,15 +5,34 @@
             [ring.middleware.json :refer [wrap-json-params]]
             [ring.middleware.reload :refer [wrap-reload]]
             [ring.util.response :as ring]
-            [ring.logger :as logger]))
+            [ring.logger :as logger]
+            [spider-server.driver :as as]
+            [spider-server.response :refer [json-response ok]]))
+
+(defn information
+  [host port]
+  (->> (as/client host port)
+       as/server-info))
+
+(defn set
+  [host port ns-name set-name]
+  (-> (as/client host port)
+      as/first-node
+      (as/scan ns-name set-name)))
 
 (defroutes app-routes
-  (GET "/" [] "Spider Server")
-  (GET "/test1/:id" [id] (str "id = " id))
-  (GET "/test2" [id] (str "id = " id))
-  (GET "/test3/:id/:value" [id value] (str "id=" id ",value=" value))
-  (GET "/test4" request (str request))
-  (GET "/test5" [] (fn [r] (ring/response (str r))))
+  (GET "/" [] "Spider Server: Version 1")
+
+  (GET "/v1/informations"
+       {{:keys [host port] :or {host "localhost" port 3000}} :params}
+       (->> {:status ok :body (information host port)}
+            json-response))
+
+  (GET "/v1/namespaces/:ns-name/sets/:set-name"
+       {{:keys [host port ns-name set-name] :or {host "localhost" port 3000}} :params}
+       (->> {:status ok :body {:records (set host port ns-name set-name)}}
+            json-response))
+
   (route/not-found "<h1>Page not found</h1>"))
 
 (def app

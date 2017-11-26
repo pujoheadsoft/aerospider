@@ -1,7 +1,5 @@
-(ns spider-server.core
-  (:require [clojure.string :as str]
-            [clojure.data.json :as json]
-            [cheshire.core :as chesire])
+(ns spider-server.driver
+  (:require [clojure.string :as str])
   (:import [java.util HashMap]
            [com.aerospike.client AerospikeClient Host Info Key Record ScanCallback]
            [com.aerospike.client.policy ClientPolicy InfoPolicy ScanPolicy]
@@ -30,12 +28,20 @@
   (ScanPolicy.))
 
 (defn client
-  [^Host host]
-  (AerospikeClient. (client-policy) (into-array Host [host])))
+  ([name port]
+   (client (host name port)))
+  ([^Host host]
+   (AerospikeClient. (client-policy) (into-array Host [host]))))
 
 (defn nodes
   [^AerospikeClient client]
   (.getNodes client))
+
+(defn first-node
+  [^AerospikeClient client]
+  (-> client
+      nodes
+      first))
 
 (defn statistics-map
   [statistics]
@@ -106,26 +112,26 @@
        (host "localhost")
        client))
 
-(def info (server-info (local-client)))
-
-(def n (first (nodes (local-client))))
-
-(defn scan
-  [^Key key ^Record record]
-  ;(prn (.digest key))
-  ;(prn "record: " (strkeymap->map (.bins record)))
-  (strkeymap->map (.bins record)))
+(defn user-key
+  [^Key key]
+  (when-let [k (.. key userKey)]
+    (.. k getObject)))
 
 (defn do-scan
+  [^Key key ^Record record]
+  (let [k (user-key key)
+        bins (->> (.. record bins)
+                  strkeymap->map)]
+    {:key k :bins bins}))
+
+(defn scan
   [node namespace set]
   (let [l (atom [])]
     (.scanNode (local-client) (scan-policy) node namespace set (reify ScanCallback
        (scanCallback [this key record]
-         (swap! l conj (scan key record))))
+         (swap! l conj (do-scan key record))))
      (into-array String []))
     @l))
-
-(do-scan n "music" "album")
 
 (defn ns-sets
   [namespace sets]
@@ -138,8 +144,6 @@
   [namespaces sets]
   (map #(ns-sets % sets) namespaces))
 
-(def struct (ns-struct (:ns info) (:sets info)))
-
 (defn ns-structs->ns-set-list
   [ns-structs]
   (letfn [(entry [namespace set] {:ns namespace :set set})
@@ -147,5 +151,3 @@
     (->> ns-structs
          (map #(f (:ns %) (:sets %)))
          flatten)))
-
-(map (fn [l] (do-scan n (:ns l) (:set l))) (ns-structs->ns-set-list struct))

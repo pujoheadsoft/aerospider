@@ -12,5 +12,7 @@
                  [cheshire "5.8.0"]
                  [org.clojure/data.json "0.2.6"]
                  [com.aerospike/aerospike-client "LATEST"]]
+  :profiles {:dev {:dependencies [[org.clojure/test.check "0.9.0"]]
+                   :plugins [[com.jakemccrary/lein-test-refresh "0.21.1"]]}}
   :plugins [[lein-ring "0.12.1"]]
   :ring {:handler spider-server.handler/app})
